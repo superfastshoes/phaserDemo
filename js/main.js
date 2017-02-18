@@ -4,17 +4,16 @@ var GameState = {
   preload: function() {
     this.load.image('background', 'assets/images/background.png');
     this.load.image('arrow', 'assets/images/arrow.png');
-    // this.load.image('chicken', 'assets/images/chicken.png');
-    // this.load.image('horse', 'assets/images/horse.png');
-    // this.load.image('pig', 'assets/images/pig.png');
-    // this.load.image('sheep', 'assets/images/sheep3.png');
-
     //specify width, height, and number of frames.
     this.load.spritesheet('chicken', 'assets/images/chicken_spritesheet.png', 131, 200, 3);
     this.load.spritesheet('horse', 'assets/images/horse_spritesheet.png', 212, 200, 3);
     this.load.spritesheet('pig', 'assets/images/pig_spritesheet.png', 297, 200, 3);
     this.load.spritesheet('sheep', 'assets/images/sheep_spritesheet.png', 244, 200, 3);
-
+    //audio files for each sprite
+    this.load.audio('chickenSound', ['assets/audio/chicken.ogg', 'assets/audio/chicken.mp3']);
+    this.load.audio('horseSound', ['assets/audio/horse.ogg', 'assets/audio/horse.mp3']);
+    this.load.audio('pigSound', ['assets/audio/pig.ogg', 'assets/audio/pig.mp3']);
+    this.load.audio('sheepSound', ['assets/audio/sheep.ogg', 'assets/audio/sheep.mp3']);
   },
 
   //executed after everything is loaded
@@ -29,46 +28,18 @@ var GameState = {
 
     // Create a sprite for the background
     this.background = this.game.add.sprite(0, 0, 'background');
-    
-    /////////////// Examples on how to add and munipulate single sprites /////////////////////////////
-    // Add a chicken to the center of the world
-    //this.chicken = this.game.add.sprite(this.game.world.centerX, this.game.world.centerY,'chicken');
-    // Place the sprite by it center, not the top-left corner
-    //this.chicken.anchor.setTo(0.5);
-    //this.chicken.scale.setTo(2, 1);
-
-    // Add a horse
-    //this.horse = this.game.add.sprite(120, 10, 'horse');
-    //this.horse.scale.setTo(0.5);
-
-    //Add a sheep
-    //this.sheep = this.game.add.sprite(100, 250, 'sheep');
-    //this.sheep.scale.setTo(0.5);
-    //this.sheep.anchor.setTo(0.5);
-    //this.sheep.angle = 90;
-
-    // Add pig
-    //this.pig = this.game.add.sprite(this.game.world.centerX, this.game.world.centerY, 'pig');
-    //this.pig.anchor.setTo(0.5);
-    // Flip on x-axis
-    //this.pig.scale.setTo(-1, 1);
-    // Enable user input on sprite
-    //this.pig.inputEnabled = true;
-    //this.pig.input.pixelPerfectClick = true;
-    //this.pig.events.onInputDown.add(this.animateAnimal, this);
-    //////////////////////////////////////////////////////////////////////////////////////////////////
 
     var animalData = [
-      {key: 'chicken', text: 'CHICKEN'},
-      {key: 'horse', text: 'HORSE'},
-      {key: 'pig', text: 'PIG'},
-      {key: 'sheep', text: 'SHEEP'}
+      {key: 'chicken', text: 'CHICKEN', audio: 'chickenSound'},
+      {key: 'horse', text: 'HORSE', audio: 'horseSound'},
+      {key: 'pig', text: 'PIG', audio: 'pigSound'},
+      {key: 'sheep', text: 'SHEEP', audio: 'sheepSound'}
     ];
 
     //create a group to store all animals
     this.animals = this.game.add.group();
 
-    //cant access 'this' in froEach loop.
+    //cant access 'this' in forEach loop.
     var self = this;
     var animal;
     
@@ -78,7 +49,7 @@ var GameState = {
       animal = self.animals.create(-1000, self.game.world.centerY, element.key, 0);
 
       //save everything that's not phaser-related in a custom property
-      animal.customParams = {tecxt: element.text};
+      animal.customParams = {text: element.key, sound: self.game.add.audio(element.audio)};
       animal.anchor.setTo(0.5);
 
       //create animal animation
@@ -99,6 +70,9 @@ var GameState = {
     //place first animal in the middle
     this.currentAnimal = this.animals.next();
     this.currentAnimal.position.set(this.game.world.centerX, this.game.world.centerY);
+
+    //show animal text
+    this.showText(this.currentAnimal);
 
     // Right Arrow
     this.rightArrow = this.game.add.sprite(580, this.game.world.centerY, 'arrow');
@@ -134,23 +108,24 @@ var GameState = {
 
   animateAnimal: function (sprite, event) {
       sprite.play('animate');
+
+      sprite.customParams.sound.play();
   },
 
 //************************************************************************************//  
 
   //switch animal
   switchAnimal: function (sprite, event) {
-    //1. get the direction of the arrow -
-    //2. get the next animal -
-    //3. get the final destination of the current animal -
-    //4. move the current animal to final destination -
-    //5. set the next animal as the new current animal -
 
+    //if animation is taking place don't do anything
     if(this.isMoving){
       return false;
     }
 
     this.isMoving = true;
+
+    //hide text
+    this.animalText.visible = false;
 
     var newAnimal, endX;
     
@@ -169,8 +144,10 @@ var GameState = {
     //tween animations, moving on x
     var newAnimalMovement = this.game.add.tween(newAnimal);
     newAnimalMovement.to({x: this.game.world.centerX}, 1000);
-    newAnimalMovement.onComplete.add(function(){
+    newAnimalMovement.onComplete.add(function()
+    {
       this.isMoving = false;
+      this.showText(newAnimal);
     }, this);
     newAnimalMovement.start();
 
@@ -178,10 +155,25 @@ var GameState = {
     currentAnimalMovement.to({x: endX}, 1000);
     currentAnimalMovement.start();
 
-
     this.currentAnimal = newAnimal;
 
+  },
+
+  showText: function(animal){
+    if(!this.animalText) {
+      var style = {
+        font: 'bold 30pt Arial',
+        fill: '#D0171B',
+        align: 'center'
+      };
+      this.animalText = this.game.add.text(this.game.width/2, this.game.height * 0.85, '', style);
+      this.animalText.anchor.setTo(0.5);
+    }
+
+    this.animalText.setText(animal.customParams.text);
+    this.animalText.visible = true;
   }
+
 };
 
 //************************************************************************************//
@@ -191,3 +183,14 @@ var game = new Phaser.Game(640, 360, Phaser.AUTO);
 
 game.state.add('GameState', GameState);
 game.state.start('GameState');
+
+
+
+
+
+
+
+
+
+
+
